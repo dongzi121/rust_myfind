@@ -4,13 +4,17 @@ use std::fs;
 use std::path::Path;
 use std::process;
 use colored::Colorize;
+use std::collections::HashSet;
+use tracing;
+pub mod tracing_init;
 
-//模式1： cargo run -- -i <目录1> <目录2>.... <正则>    可以同时搜索多个path,并输出一共多少个匹配项
-//模式2： cargo run -- -v <目录>  <正则>  并输出所有的遍历文件
-//模式3： cargo run -- -z <目录> <正则1>...<正则n>   可以同时匹配多个正则,并输出一共多少个匹配项
+//模式1： cargo run -- -i <目录1> <目录2>.... <正则>    可以同时搜索多个path,并输出一共多少个匹配项，并去重排序
+//模式2： cargo run -- -v <目录>  <正则>  ，并去重排序，并输出所有的遍历文件
+//模式3： cargo run -- -z <目录> <正则1>...<正则n>   可以同时匹配多个正则,并输出一共多少个匹配项，并去重排序
 //同时，命令行可以彩色输出，一些语句进行了彩色处理
 //尝试通过tracing输出日志，但有奇怪的环境错误
 fn main() {
+    tracing_init::tracing_init();
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
         eprintln!("使用方法：{} <目标目录> <要搜索的正则表达式>", args[0]);
@@ -38,6 +42,8 @@ fn main() {
                         println!("{}", "未找到匹配项".blue());
                     } else {
                         println!("{}", "找到以下匹配项".yellow());
+                        let mut matches: Vec<_> = matches.into_iter().collect::<HashSet<_>>().into_iter().collect();//去重
+                        matches.sort(); //排序
                         for file in matches {
                             println!("{}", file.green());
                         }
@@ -60,6 +66,8 @@ fn main() {
                     println!("{}", "未找到匹配项".blue());
                 } else {
                     println!("{}", "找到以下匹配项".yellow());
+                    let mut matches: Vec<_> = matches.into_iter().collect::<HashSet<_>>().into_iter().collect();//去重
+                    matches.sort(); //排序
                     for file in matches {
                         println!("{}", file.green());
                     }
@@ -80,11 +88,9 @@ fn main() {
         }
     
     }else if args[1] == "-z"{
-        //////////////
         let mut total_matches = 0;
         let mut all_files = Vec::new();
         for r in 3..(args.len() ) {
-            ////////////////
             let pattern2 = &args[r];
             let regex2 = match Regex::new(pattern2) {
                 Ok(re) => re,
@@ -93,7 +99,6 @@ fn main() {
                     process::exit(1);
                 }
             };
-            /// //////////
             match find(&args[2], &regex2) {
                 Ok((matches, count, files)) => {
                     total_matches += count;
@@ -102,6 +107,8 @@ fn main() {
                         println!("{}", "未找到匹配项".blue());
                     } else {
                         println!("{}", "找到以下匹配项".yellow());
+                        let mut matches: Vec<_> = matches.into_iter().collect::<HashSet<_>>().into_iter().collect();//去重
+                        matches.sort(); //排序
                         for file in matches {
                             println!("{}", file.green());
                         }
@@ -127,6 +134,8 @@ fn main() {
                     println!("{}", "未找到匹配项".blue());
                 } else {
                     println!("{}", "找到以下匹配项".yellow());
+                    let mut matches: Vec<_> = matches.into_iter().collect::<HashSet<_>>().into_iter().collect();//去重
+                    matches.sort(); //排序
                     for file in matches {
                         println!("{}", file.green());
                     }
@@ -139,6 +148,7 @@ fn main() {
             }
         }
     }
+    tracing::event!(tracing::Level::INFO, "");//输出日志
 }
 
 fn find<P: AsRef<Path>>(
